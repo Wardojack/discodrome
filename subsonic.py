@@ -148,6 +148,52 @@ class Album():
         ''' The songs in the album '''
         return self._songs
     
+class Playlist():
+    ''' Object representing a playlist returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        self._id: str = json_object["id"] if "id" in json_object else ""
+        self._name: str = json_object["name"] if "name" in json_object else "Unknown Album"
+        self._cover_id: str = json_object["coverArt"] if "coverArt" in json_object else ""
+        self._song_count: int = json_object["songCount"] if "songCount" in json_object else 0
+        self._duration: int = json_object["duration"] if "duration" in json_object else 0
+        self._songs: list[Song] = []
+        for song in json_object["entry"]:
+            self._songs.append(Song(song))
+    
+    @property
+    def playlist_id(self) -> str:
+        ''' The playlist's id '''
+        return self._id
+    
+    @property
+    def name(self) -> str:
+        ''' The playlist's name '''
+        return self._name
+    
+    @property
+    def cover_id(self) -> str:
+        ''' The id of the cover art used by the playlist '''
+        return self._cover_id
+    
+    @property
+    def song_count(self) -> int:
+        ''' The number of songs in the playlist '''
+        return self._song_count
+    
+    @property
+    def duration(self) -> int:
+        ''' The total duration of the playlist '''
+        return self._duration
+    
+    @property
+    def duration_printable(self) -> str:
+        ''' The total duration of the playlist as a human readable string in the format `mm:ss` '''
+        return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
+    
+    @property
+    def songs(self) -> list[Song]:
+        ''' The songs in the playlist '''
+        return self._songs
 
 async def ping_api() -> bool:
     ''' Send a ping request to the subsonic API '''
@@ -297,6 +343,46 @@ async def search_album(query: str) -> list[Album]:
         return None
     
     return album
+
+async def get_user_playlists() -> list[int]:
+    ''' Retrive metadata of all playlists the Subsonic user is authorised to play '''
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getPlaylists.view", params=SUBSONIC_REQUEST_PARAMS) as response:
+        response.raise_for_status()
+        query_data = await response.json()
+        if await check_subsonic_error(query_data):
+            return None
+        logger.debug("Playlists query response: %s", query_data)
+
+    playlists = query_data["subsonic-response"]["playlists"]["playlist"]
+
+    return playlists
+
+async def get_playlist(id: str) -> Playlist:
+    ''' Retrive the contents of a specific playlist '''
+
+    playlist_params = {
+        "id": id
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | playlist_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getPlaylist.view", params=params) as response:
+        response.raise_for_status()
+        playlist = await response.json()
+        if await check_subsonic_error(playlist):
+            return None
+        logger.debug("Playlist query response: %s", playlist)
+
+    try:
+        playlist = Playlist(playlist["subsonic-response"]["playlist"])
+    except Exception as e:
+        logger.error("Failed to parse playlist data: %s", e)
+        return None
+    
+    return playlist
 
 async def get_artist_id(query: str) -> str:
     ''' Send a search request to the subsonic API to return the id of an artist '''

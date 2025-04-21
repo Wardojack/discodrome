@@ -2,7 +2,7 @@ import discord
 
 import logging
 
-from subsonic import Song, Album, get_album_art_file
+from subsonic import Song, Album, Playlist, get_album_art_file
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,13 @@ class SysMsg:
         desc = f"**{album.name}** - *{album.artist}*\n{album.song_count} songs ({album.duration} seconds)"
         cover_art = await get_album_art_file(album.cover_id)
         await __class__.msg(interaction, f"{interaction.user.display_name} added album to queue", desc, cover_art)
+
+    @staticmethod
+    async def added_playlist_to_queue(interaction: discord.Interaction, playlist: Playlist) -> None:
+        ''' Sends a message indicating the selected playlist was added to queue '''
+        desc = f"**{playlist.name}**\n{playlist.song_count} songs ({playlist.duration} seconds)"
+        cover_art = await get_album_art_file(playlist.cover_id)
+        await __class__.msg(interaction, f"{interaction.user.display_name} added playlist to queue", desc, cover_art)
 
     @staticmethod
     async def added_discography_to_queue(interaction: discord.Interaction, artist: str, albums: list[Album]) -> None:
