@@ -18,14 +18,15 @@ A discord music bot that seamlessly streams music from your personal music serve
 
 | Command | Description |
 |---------|-------------|
-| `/play` | Plays a specified track |
+| `/play` | Plays a specified track, album or playlist |
 | `/disco` | Plays an artist's entire discography |
 | `/queue` | View the current queue |
 | `/clear` | Clear the current queue |
 | `/shuffle` | Shuffles the current queue |
 | `/skip` | Skip the current track |
 | `/stop` | Stop playing the current track |
-| `/autoplay` | Toggles autoplay |
+| `/autoplay` | Toggle autoplay |
+| `/playlists` | List available playlists |
 
 ## 🚀 Complete Setup Guide
 

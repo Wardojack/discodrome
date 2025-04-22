@@ -37,11 +37,12 @@ class MusicCog(commands.Cog):
 
         return voice_client
 
-    @app_commands.command(name="play", description="Plays a specified track")
-    @app_commands.describe(querytype="Whether what you're searching is a track or album", query="Enter a search query")
+    @app_commands.command(name="play", description="Plays a specified track, album or playlist")
+    @app_commands.describe(querytype="Whether what you're searching is a track, album or playlist", query="Enter a search query")
     @app_commands.choices(querytype=[
         app_commands.Choice(name="Track", value="track"),
         app_commands.Choice(name="Album", value="album"),
+        app_commands.Choice(name="Playlist", value="playlist"),
     ])
     async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
@@ -109,6 +110,37 @@ class MusicCog(commands.Cog):
             
             await ui.SysMsg.added_album_to_queue(interaction, album)
 
+        elif querytype == "playlist":
+
+            # Send query to subsonic API and retrieve a list of all playlists
+            playlists = await subsonic.get_user_playlists()
+            if playlists == None:
+                await ui.ErrMsg.msg(interaction, f"No playlists found.")
+                return
+            
+            # Check if the specific playlist exists and get it's contents
+            playlist = None
+            playlist_id = None
+            for playlist in playlists:
+                if playlist["name"] == query:
+                    playlist_id = playlist["id"]
+                    break
+            if playlist_id == None:
+                await ui.ErrMsg.msg(interaction, f"No playlist found for **{query}**.")
+                return
+            else:
+                playlist = await subsonic.get_playlist(playlist_id)
+            if playlist == None:
+                # If we end up here then the following error message doesn't really cover it... It's more likely an error in this code
+                await ui.ErrMsg.msg(interaction, f"No playlist found for **{query}**.")
+                return
+            
+            # Add all songs from the playlist to the queue
+            for song in playlist.songs:
+                player.queue.append(song)
+            
+            await ui.SysMsg.added_playlist_to_queue(interaction, playlist)
+
         await player.play_audio_queue(interaction, voice_client)
 
     @play.error
@@ -141,9 +173,10 @@ class MusicCog(commands.Cog):
         # Stop playback
         voice_client.stop()
 
+        player.current_song = None
+        
         # Add current song back to the queue if exists
         player.queue.insert(0, player.current_song)
-        player.current_song = None
 
         # Display disconnect confirmation
         await ui.SysMsg.stopping_queue_playback(interaction)
@@ -327,8 +360,6 @@ class MusicCog(commands.Cog):
         # Begin playback of queue
         await player.play_audio_queue(interaction, voice_client)
 
-        
-
     @disco.error
     async def disco_error(self, ctx, error):
         if isinstance(error, subsonic.APIError):
@@ -336,7 +367,46 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.msg(ctx, "An API error has occurred and has been logged to console. Please contact an administrator.")
         else:
             logging.error(f"An error occurred while playing an artist's discography: {error}")
-            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")    
+            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
+    @app_commands.command(name="playlists", description="List all playlists")
+    async def list_playlists(self, interaction):
+        # Send query to subsonic API and retrieve a list of all playlists
+        playlists = await subsonic.get_user_playlists()
+        if playlists == None:
+            await ui.ErrMsg.msg(interaction, f"No playlists found.")
+            return
+
+        # Create a string to store the output
+        output = ""
+
+        # Loop over the list of playlists, adding each one into our output string
+        for i, playlist in enumerate(playlists):
+            strtoadd = f"{i+1}. **{playlist['name']}** \n{playlist['songCount']} songs - {(playlist['duration'] // 60):02d}m {(playlist['duration'] % 60):02d}s\n\n"
+            if len(output+strtoadd) < 4083:
+                output += strtoadd
+            else:
+                remaining = len(playlists) - i
+                output += f"**And {remaining} more...**"
+                break
+
+        # Check if our output string is empty & update it accordingly
+        if output == "":
+            output = "No playlists found."
+
+        # Show the user their queue
+        await ui.SysMsg.msg(interaction, "Available playlists", output)
+
+    @list_playlists.error
+    async def playlists_error(self, ctx, error):
+        if isinstance(error, subsonic.APIError):
+            logging.error(f"An API error has occurred while fetching playlists, code {error.code}: {error.message}")
+            await ui.ErrMsg.msg(ctx, "An API error has occurred and has been logged to console. Please contact an administrator.")
+        else:
+            logging.error(f"An error occurred while fetching playlists: {error}")
+            await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
