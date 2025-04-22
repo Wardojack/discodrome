@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 
 import logging
 
@@ -12,7 +13,7 @@ class SysMsg:
     ''' A class for sending system messages '''
 
     @staticmethod
-    async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None, *, ephemeral: bool=False) -> None:
+    async def msg(ctx: commands.Context, header: str, message: str=None, thumbnail: str=None, *, ephemeral: bool=False) -> None:
         ''' Generic message function. Creates a message formatted as an embed '''
 
         # Handle message over character limit
@@ -29,132 +30,135 @@ class SysMsg:
             file = discord.File(thumbnail, filename="image.png")
             embed.set_thumbnail(url="attachment://image.png")
 
-        # Attempt to send the error message, up to 3 times
-        attempt = 0
-        while attempt < 3:
-            try:
-                if interaction.response.is_done():
-                    await interaction.followup.send(file=file, embed=embed, ephemeral=ephemeral)
-                    return
-                else:
-                    await interaction.response.send_message(file=file, embed=embed, ephemeral=ephemeral)
-                    return
-            except discord.NotFound:
-                logger.warning("Attempt %d at sending a system message failed...", attempt+1)
-                attempt += 1
+        await ctx.channel.send(embed=embed)
+
+        # Attempt to send the message, up to 3 times
+        # attempt = 0
+        # while attempt < 3:
+        #     try:
+        #         if interaction.response.is_done():
+        #             await interaction.followup.send(file=file, embed=embed, ephemeral=ephemeral)
+        #             return
+        #         else:
+        #             await interaction.response.send_message(file=file, embed=embed, ephemeral=ephemeral)
+        #             return
+        #     except discord.NotFound:
+        #         logger.warning("Attempt %d at sending a system message failed...", attempt+1)
+        #         attempt += 1
 
 
     @staticmethod
-    async def now_playing(interaction: discord.Interaction, song: Song) -> None:
+    async def now_playing(ctx: commands.Context, song: Song) -> None:
         ''' Sends a message containing the currently playing song '''
         cover_art = await get_album_art_file(song.cover_id)
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
-        await __class__.msg(interaction, "Now Playing:", desc, cover_art)
+        await __class__.msg(ctx, "Now Playing:", desc, cover_art)
 
     @staticmethod
-    async def playback_ended(interaction: discord.Interaction) -> None:
+    async def playback_ended(ctx: commands.Context) -> None:
         ''' Sends a message indicating playback has ended '''
-        await __class__.msg(interaction, "Playback ended")
+        await __class__.msg(ctx, "Playback ended")
 
     @staticmethod
-    async def disconnected(interaction: discord.Interaction) -> None:
+    async def disconnected(ctx: commands.Context) -> None:
         ''' Sends a message indicating the bot disconnected from voice channel '''
-        await __class__.msg(interaction, "Disconnected from voice channel")
+        await __class__.msg(ctx, "Disconnected from voice channel")
 
     @staticmethod
-    async def starting_queue_playback(interaction: discord.Interaction) -> None:
+    async def starting_queue_playback(ctx: commands.Context) -> None:
         ''' Sends a message indicating queue playback has started '''
-        await __class__.msg(interaction, "Started queue playback")
+        await __class__.msg(ctx, "Started queue playback")
 
     @staticmethod
-    async def stopping_queue_playback(interaction: discord.Interaction) -> None:
+    async def stopping_queue_playback(ctx: commands.Context) -> None:
         ''' Sends a message indicating queue playback has stopped '''
-        await __class__.msg(interaction, "Stopped queue playback")
+        await __class__.msg(ctx, "Stopped queue playback")
 
     @staticmethod
-    async def added_to_queue(interaction: discord.Interaction, song: Song) -> None:
+    async def added_to_queue(ctx: commands.Context, song: Song) -> None:
         ''' Sends a message indicating the selected song was added to queue '''
         desc = f"**{song.title}** - *{song.artist}*\n{song.album} ({song.duration_printable})"
         cover_art = await get_album_art_file(song.cover_id)
-        await __class__.msg(interaction, f"{interaction.user.display_name} added track to queue", desc, cover_art)
+        await __class__.msg(ctx, f"{ctx.author.display_name} added track to queue", desc, cover_art)
 
     @staticmethod
-    async def added_album_to_queue(interaction: discord.Interaction, album: Album) -> None:
+    async def added_album_to_queue(ctx: commands.Context, album: Album) -> None:
         ''' Sends a message indicating the selected album was added to queue '''
         desc = f"**{album.name}** - *{album.artist}*\n{album.song_count} songs ({album.duration} seconds)"
         cover_art = await get_album_art_file(album.cover_id)
-        await __class__.msg(interaction, f"{interaction.user.display_name} added album to queue", desc, cover_art)
+        await __class__.msg(ctx, f"{ctx.author.display_name} added album to queue", desc, cover_art)
 
     @staticmethod
-    async def added_playlist_to_queue(interaction: discord.Interaction, playlist: Playlist) -> None:
+    async def added_playlist_to_queue(ctx: commands.Context, playlist: Playlist) -> None:
         ''' Sends a message indicating the selected playlist was added to queue '''
         desc = f"**{playlist.name}**\n{playlist.song_count} songs ({playlist.duration} seconds)"
         cover_art = await get_album_art_file(playlist.cover_id)
-        await __class__.msg(interaction, f"{interaction.user.display_name} added playlist to queue", desc, cover_art)
+        await __class__.msg(ctx, f"{ctx.author.display_name} added playlist to queue", desc, cover_art)
 
     @staticmethod
-    async def added_discography_to_queue(interaction: discord.Interaction, artist: str, albums: list[Album]) -> None:
+    async def added_discography_to_queue(ctx: commands.Context, artist: str, albums: list[Album]) -> None:
         ''' Sends a message indicating the selected artist's discography was added to queue '''
         desc = f"**{artist}**\n{len(albums)} albums\n\n"
         cover_art = await get_album_art_file(albums[0].cover_id)
         for counter in range(len(albums)):
             album = albums[counter]
             desc += f"**{str(counter+1)}. {album.name}**\n{album.song_count} songs ({album.duration} seconds)\n\n" 
-        await __class__.msg(interaction, f"{interaction.user.display_name} added discography to queue", desc, cover_art)
+        await __class__.msg(ctx, f"{ctx.author.display_name} added discography to queue", desc, cover_art)
 
     @staticmethod
-    async def queue_cleared(interaction: discord.Interaction) -> None:
+    async def queue_cleared(ctx: commands.Context) -> None:
         ''' Sends a message indicating a user cleared the queue '''
-        await __class__.msg(interaction, f"{interaction.user.display_name} cleared the queue")
+        await __class__.msg(ctx, f"{ctx.author.display_name} cleared the queue")
 
     @staticmethod
-    async def skipping(interaction: discord.Interaction) -> None:
+    async def skipping(ctx: commands.Context) -> None:
         ''' Sends a message indicating the current song was skipped '''
-        await __class__.msg(interaction, "Skipped track", ephemeral=True)
+        await __class__.msg(ctx, "Skipped track", ephemeral=True)
 
 
 class ErrMsg:
     ''' A class for sending error messages '''
 
     @staticmethod
-    async def msg(interaction: discord.Interaction, message: str) -> None:
+    async def msg(ctx: commands.Context, message: str) -> None:
         ''' Generic message function. Creates an error message formatted as an embed '''
         embed = discord.Embed(color=discord.Color(0x50C470), title="Error", description=message)
 
-        if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.channel.send(embed=embed)
+        # if interaction.response.is_done():
+        #     await interaction.followup.send(embed=embed, ephemeral=True)
+        # else:
+        #     await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @staticmethod
-    async def user_not_in_voice_channel(interaction: discord.Interaction) -> None:
+    async def user_not_in_voice_channel(ctx: commands.Context) -> None:
         ''' Sends an error message indicating user is not in a voice channel '''
-        await __class__.msg(interaction, "You are not connected to a voice channel.")
+        await __class__.msg(ctx, "You are not connected to a voice channel.")
 
     @staticmethod
-    async def bot_not_in_voice_channel(interaction: discord.Interaction) -> None:
+    async def bot_not_in_voice_channel(ctx: commands.Context) -> None:
         ''' Sends an error message indicating bot is connect to a voice channel '''
-        await __class__.msg(interaction, "Not currently connected to a voice channel.")
+        await __class__.msg(ctx, "Not currently connected to a voice channel.")
 
     @staticmethod
-    async def cannot_connect_to_voice_channel(interaction: discord.Interaction) -> None:
+    async def cannot_connect_to_voice_channel(ctx: commands.Context) -> None:
         ''' Sends an error message indicating bot is unable to connect to a voice channel '''
-        await __class__.msg(interaction, "Cannot connect to voice channel.")
+        await __class__.msg(ctx, "Cannot connect to voice channel.")
 
     @staticmethod
-    async def queue_is_empty(interaction: discord.Interaction) -> None:
+    async def queue_is_empty(ctx: commands.Context) -> None:
         ''' Sends an error message indicating the queue is empty '''
-        await __class__.msg(interaction, "Queue is empty.")
+        await __class__.msg(ctx, "Queue is empty.")
 
     @staticmethod
-    async def already_playing(interaction: discord.Interaction) -> None:
+    async def already_playing(ctx: commands.Context) -> None:
         ''' Sends an error message indicating that music is already playing '''
-        await __class__.msg(interaction, "Already playing.")
+        await __class__.msg(ctx, "Already playing.")
 
     @staticmethod
-    async def not_playing(interaction: discord.Interaction) -> None:
+    async def not_playing(ctx: commands.Context) -> None:
         ''' Sends an error message indicating nothing is playing '''
-        await __class__.msg(interaction, "No track is playing.")
+        await __class__.msg(ctx, "No track is playing.")
 
 
 

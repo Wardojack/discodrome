@@ -80,6 +80,7 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
 | `BOT_STATUS` | Custom status message for the bot | No |
+| `BOT_PREFIX` | Command prefix for the bot. Prefix commands will be disabled if not set. An empty string will cause all messages to be interpreted as commands. | No |
 
 ### Supported Subsonic Servers
 
