@@ -1,5 +1,6 @@
 import discord
 import logging
+import asyncio
 from discord import app_commands
 from discord.ext import commands
 
@@ -8,7 +9,6 @@ import data
 import copy
 import subsonic
 import ui
-from asyncio import sleep
 
 from discodrome import DiscodromeClient
 
@@ -31,10 +31,41 @@ class MusicCog(commands.Cog):
         # Connect to a voice channel
         if voice_client is None and should_connect:
             try:
-                voice_client = await interaction.user.voice.channel.connect()
-            except AttributeError:
+                # Check if user is in a voice channel
+                if interaction.user.voice is None or interaction.user.voice.channel is None:
+                    await ui.ErrMsg.user_not_in_voice_channel(interaction)
+                    return None
+                
+                # Check if we have permission to join the voice channel
+                permissions = interaction.user.voice.channel.permissions_for(interaction.guild.me)
+                if not permissions.connect or not permissions.speak:
+                    logger.error("Missing permissions to connect or speak in voice channel")
+                    await ui.ErrMsg.msg(interaction, "I don't have permission to join or speak in your voice channel.")
+                    return None
+                
+                # Add a small delay before connecting to avoid potential race conditions
+                await asyncio.sleep(1)
+                
+                # Connect with timeout and retry logic
+                try:
+                    voice_client = await interaction.user.voice.channel.connect(timeout=10.0, reconnect=True)
+                    logger.info(f"Successfully connected to voice channel {interaction.user.voice.channel.id}")
+                except asyncio.TimeoutError:
+                    logger.error("Timeout while connecting to voice channel")
+                    await ui.ErrMsg.msg(interaction, "Timed out while trying to connect to voice channel. Please try again.")
+                    return None
+                except discord.ClientException as e:
+                    logger.error(f"Client exception when connecting to voice: {e}")
+                    await ui.ErrMsg.msg(interaction, f"Error connecting to voice channel: {e}")
+                    return None
+                
+            except AttributeError as e:
+                logger.error(f"Attribute error when connecting to voice: {e}")
                 await ui.ErrMsg.cannot_connect_to_voice_channel(interaction)
-
+            except Exception as e:
+                logger.error(f"Unexpected error when connecting to voice: {e}")
+                await ui.ErrMsg.msg(interaction, f"An unexpected error occurred while connecting to voice: {e}")
+                
         return voice_client
 
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
@@ -423,7 +454,7 @@ class MusicCog(commands.Cog):
         if len(voice_client.channel.members) == 1:
             logger.debug("Bot is alone in voice channel, waiting 10 seconds before disconnecting...")
             # Wait for 10 seconds
-            await sleep(10)
+            await asyncio.sleep(10)
             
             # Check again if there are still no users in the voice channel
             if len(voice_client.channel.members) == 1:

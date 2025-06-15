@@ -68,9 +68,15 @@ class Player():
     async def stream_track(self, interaction: discord.Interaction, song: Song, voice_client: discord.VoiceClient) -> None:
         ''' Streams a track from the Subsonic server to a connected voice channel, and updates guild data accordingly '''
 
-        # Make sure the voice client is available
+        # Make sure the voice client is available and connected
         if voice_client is None:
             await ui.ErrMsg.bot_not_in_voice_channel(interaction)
+            return
+        
+        # Check if the voice client is still connected
+        if not voice_client.is_connected():
+            logger.error("Voice client is not connected")
+            await ui.ErrMsg.msg(interaction, "Voice connection was lost. Please try again.")
             return
 
         # Make sure the bot isn't already playing music
@@ -82,12 +88,21 @@ class Player():
         ffmpeg_options = {"before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                            "options": "-filter:a volume=replaygain=track"}
         try:
-            audio_src = discord.FFmpegOpusAudio(await stream(song.song_id), **ffmpeg_options)
+            stream_url = await stream(song.song_id)
+            if not stream_url:
+                logger.error("Failed to get stream URL")
+                await ui.ErrMsg.msg(interaction, "Failed to get audio stream. Please try again.")
+                return
+                
+            audio_src = discord.FFmpegOpusAudio(stream_url, **ffmpeg_options)
         except APIError as err:
-            logging.error(f"API Error streaming song, Code {err.errorcode}: {err.message}")
-        # audio_src.read()
-
-        # TODO: Start a duration timer
+            logger.error(f"API Error streaming song, Code {err.errorcode}: {err.message}")
+            await ui.ErrMsg.msg(interaction, f"API error while streaming song: {err.message}")
+            return
+        except Exception as e:
+            logger.error(f"Unexpected error getting audio stream: {e}")
+            await ui.ErrMsg.msg(interaction, "An error occurred while preparing the audio. Please try again.")
+            return
 
         # Begin playing the song
         loop = asyncio.get_event_loop()
@@ -96,22 +111,59 @@ class Player():
         # Handle playback finished
         async def playback_finished(error):
             if error:
-                logging.error(f"An error occurred while playing the audio: {error}")
+                logger.error(f"An error occurred while playing the audio: {error}")
+                # Check if the error is related to voice connection
+                if "Not connected to voice" in str(error):
+                    logger.warning("Voice connection was lost during playback")
+                    # Try to reconnect if possible
+                    if interaction.user and interaction.user.voice and interaction.user.voice.channel:
+                        try:
+                            # Try to reconnect to the voice channel
+                            if voice_client and not voice_client.is_connected():
+                                await voice_client.connect(timeout=10.0, reconnect=True)
+                                logger.info("Successfully reconnected to voice channel")
+                        except Exception as e:
+                            logger.error(f"Failed to reconnect to voice channel: {e}")
                 return
+                
             logger.debug("Playback finished.")
             try:
-                future = asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
-                # Add a callback to handle any exceptions that occur during execution
-                future.add_done_callback(lambda f: logger.error(f"Error in play_audio_queue: {f.exception()}") if f.exception() else None)
+                # Only proceed if voice client is still connected
+                if voice_client and voice_client.is_connected():
+                    future = asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
+                    # Add a callback to handle any exceptions that occur during execution
+                    future.add_done_callback(lambda f: logger.error(f"Error in play_audio_queue: {f.exception()}") if f.exception() else None)
+                else:
+                    logger.warning("Voice client disconnected, cannot continue queue playback")
             except Exception as e:
-                logging.error(f"Failed to schedule play_audio_queue: {e}")
+                logger.error(f"Failed to schedule play_audio_queue: {e}")
 
-
-        try:
-            voice_client.play(audio_src, after=lambda e: loop.create_task(playback_finished(e)))
-        except Exception as err:
-            logging.error(f"An error occurred while playing the audio: {err}")
-            return
+        # Try to play the audio with retry logic
+        max_attempts = 3
+        attempt = 0
+        
+        while attempt < max_attempts:
+            try:
+                # Check again if voice client is still connected before playing
+                if not voice_client.is_connected():
+                    logger.error("Voice client disconnected before playing")
+                    await ui.ErrMsg.msg(interaction, "Voice connection was lost. Please try again.")
+                    return
+                    
+                voice_client.play(audio_src, after=lambda e: loop.create_task(playback_finished(e)))
+                logger.info(f"Started playing: {song.title} by {song.artist}")
+                return  # Success, exit the function
+            except discord.ClientException as e:
+                logger.error(f"Discord client exception while playing audio (attempt {attempt+1}): {e}")
+                attempt += 1
+                if attempt >= max_attempts:
+                    await ui.ErrMsg.msg(interaction, "Failed to play audio after multiple attempts. Please try again.")
+                    return
+                await asyncio.sleep(1)  # Wait before retrying
+            except Exception as err:
+                logger.error(f"An error occurred while playing the audio: {err}")
+                await ui.ErrMsg.msg(interaction, "An error occurred while playing the audio. Please try again.")
+                return
 
 
     async def handle_autoplay(self, interaction: discord.Interaction, prev_song_id: str=None) -> bool:

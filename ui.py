@@ -1,6 +1,6 @@
 import discord
-
 import logging
+import asyncio
 
 from subsonic import Song, Album, Playlist, get_album_art_file
 
@@ -15,6 +15,11 @@ class SysMsg:
     async def msg(interaction: discord.Interaction, header: str, message: str=None, thumbnail: str=None, *, ephemeral: bool=False) -> None:
         ''' Generic message function. Creates a message formatted as an embed '''
 
+        # Check if interaction is still valid
+        if interaction is None or interaction.guild is None:
+            logger.warning("Cannot send message: interaction is no longer valid")
+            return
+
         # Handle message over character limit
         if message is not None and len(message) > 4096:
             message = message[:4093] + "..."
@@ -22,32 +27,41 @@ class SysMsg:
         embed = discord.Embed(color=discord.Color(0x50C470), title=header, description=message)
         file = discord.utils.MISSING
 
-
-
         # Attach a thumbnail if one was provided (as a local file)
         if thumbnail is not None:
-            file = discord.File(thumbnail, filename="image.png")
-            embed.set_thumbnail(url="attachment://image.png")
+            try:
+                file = discord.File(thumbnail, filename="image.png")
+                embed.set_thumbnail(url="attachment://image.png")
+            except Exception as e:
+                logger.error(f"Failed to attach thumbnail: {e}")
+                # Continue without the thumbnail
 
-        # Attempt to send the error message, up to 3 times
+        # Attempt to send the message, up to 3 times
         attempt = 0
         while attempt < 3:
             try:
+                # Check if the interaction response is already done
                 if interaction.response.is_done():
+                    # Use followup
                     await interaction.followup.send(file=file, embed=embed, ephemeral=ephemeral)
                     return
                 else:
+                    # Use initial response
                     await interaction.response.send_message(file=file, embed=embed, ephemeral=ephemeral)
                     return
             except discord.NotFound:
                 logger.warning("Attempt %d at sending a system message failed (NotFound)...", attempt+1)
                 attempt += 1
+                # Short delay before retrying
+                await asyncio.sleep(0.5)
             except discord.HTTPException as e:
                 logger.warning("Attempt %d at sending a system message failed (HTTPException: %s)...", attempt+1, e)
                 attempt += 1
+                await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error("Unexpected error when sending system message: %s", e)
                 attempt += 1
+                await asyncio.sleep(0.5)
         
         # If we've exhausted all attempts, log a more detailed error
         logger.error("Failed to send system message after %d attempts. Header: %s", attempt, header)
@@ -128,6 +142,12 @@ class ErrMsg:
     @staticmethod
     async def msg(interaction: discord.Interaction, message: str) -> None:
         ''' Generic message function. Creates an error message formatted as an embed '''
+        
+        # Check if interaction is still valid
+        if interaction is None or interaction.guild is None:
+            logger.warning("Cannot send error message: interaction is no longer valid")
+            return
+            
         embed = discord.Embed(color=discord.Color(0x50C470), title="Error", description=message)
 
         # Attempt to send the error message, up to 3 times
@@ -143,12 +163,16 @@ class ErrMsg:
             except discord.NotFound:
                 logger.warning("Attempt %d at sending an error message failed (NotFound)...", attempt+1)
                 attempt += 1
+                # Short delay before retrying
+                await asyncio.sleep(0.5)
             except discord.HTTPException as e:
                 logger.warning("Attempt %d at sending an error message failed (HTTPException: %s)...", attempt+1, e)
                 attempt += 1
+                await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error("Unexpected error when sending error message: %s", e)
                 attempt += 1
+                await asyncio.sleep(0.5)
         
         # If we've exhausted all attempts, log a more detailed error
         logger.error("Failed to send error message after %d attempts. Message: %s", attempt, message)
