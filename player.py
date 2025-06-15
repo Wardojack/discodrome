@@ -99,7 +99,12 @@ class Player():
                 logging.error(f"An error occurred while playing the audio: {error}")
                 return
             logger.debug("Playback finished.")
-            asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
+            try:
+                future = asyncio.run_coroutine_threadsafe(self.play_audio_queue(interaction, voice_client), loop)
+                # Add a callback to handle any exceptions that occur during execution
+                future.add_done_callback(lambda f: logger.error(f"Error in play_audio_queue: {f.exception()}") if f.exception() else None)
+            except Exception as e:
+                logging.error(f"Failed to schedule play_audio_queue: {e}")
 
 
         try:

@@ -40,8 +40,17 @@ class SysMsg:
                     await interaction.response.send_message(file=file, embed=embed, ephemeral=ephemeral)
                     return
             except discord.NotFound:
-                logger.warning("Attempt %d at sending a system message failed...", attempt+1)
+                logger.warning("Attempt %d at sending a system message failed (NotFound)...", attempt+1)
                 attempt += 1
+            except discord.HTTPException as e:
+                logger.warning("Attempt %d at sending a system message failed (HTTPException: %s)...", attempt+1, e)
+                attempt += 1
+            except Exception as e:
+                logger.error("Unexpected error when sending system message: %s", e)
+                attempt += 1
+        
+        # If we've exhausted all attempts, log a more detailed error
+        logger.error("Failed to send system message after %d attempts. Header: %s", attempt, header)
 
 
     @staticmethod
@@ -121,10 +130,28 @@ class ErrMsg:
         ''' Generic message function. Creates an error message formatted as an embed '''
         embed = discord.Embed(color=discord.Color(0x50C470), title="Error", description=message)
 
-        if interaction.response.is_done():
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+        # Attempt to send the error message, up to 3 times
+        attempt = 0
+        while attempt < 3:
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                    return
+                else:
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                    return
+            except discord.NotFound:
+                logger.warning("Attempt %d at sending an error message failed (NotFound)...", attempt+1)
+                attempt += 1
+            except discord.HTTPException as e:
+                logger.warning("Attempt %d at sending an error message failed (HTTPException: %s)...", attempt+1, e)
+                attempt += 1
+            except Exception as e:
+                logger.error("Unexpected error when sending error message: %s", e)
+                attempt += 1
+        
+        # If we've exhausted all attempts, log a more detailed error
+        logger.error("Failed to send error message after %d attempts. Message: %s", attempt, message)
 
     @staticmethod
     async def user_not_in_voice_channel(interaction: discord.Interaction) -> None:

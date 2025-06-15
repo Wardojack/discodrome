@@ -1,4 +1,4 @@
-from asyncio import run
+import asyncio
 import signal
 import discord
 import logging
@@ -82,7 +82,14 @@ def exit_handler(signum, frame):
     ''' Function ran on application exit. '''
     logger.debug("Beginning graceful shutdown...")
     data.save_guild_properties_to_disk()
-    run(close_session())
+    try:
+        loop = asyncio.get_event_loop()
+        loop.create_task(close_session())
+    except RuntimeError:
+        # If we can't get the event loop, create a new one as a fallback
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(close_session())
     logger.info("Discodrome shutdown complete.")
 
 # Register the exit handler
