@@ -355,7 +355,11 @@ async def get_user_playlists() -> list[int]:
             return None
         logger.debug("Playlists query response: %s", query_data)
 
-    playlists = query_data["subsonic-response"]["playlists"]["playlist"]
+    container = query_data["subsonic-response"]["playlists"]
+    if "playlist" in container:
+        playlists = container["playlist"]
+    else
+        playlists = None
 
     return playlists
 
