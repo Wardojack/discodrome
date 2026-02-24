@@ -78,7 +78,7 @@ class MusicCog(commands.Cog):
         app_commands.Choice(name="Album", value="album"),
         app_commands.Choice(name="Playlist", value="playlist"),
     ])
-    async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
+    async def play(self, interaction: discord.Interaction, querytype: app_commands.Choice[str], query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
 
         # Check if user is in voice channel
@@ -108,11 +108,11 @@ class MusicCog(commands.Cog):
             return
 
         # Check querytype is not blank
-        if querytype is None:
+        if querytype.value is None:
             return await ui.ErrMsg.msg(interaction, "Please provide a query type.")
 
         # Check if the query is a track
-        if querytype == "track":
+        if querytype.value == "track":
 
             # Send our query to the subsonic API and retrieve a list of 1 song
             songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
@@ -130,7 +130,7 @@ class MusicCog(commands.Cog):
 
             await ui.SysMsg.added_to_queue(interaction, songs[0])
 
-        elif querytype == "album":
+        elif querytype.value == "album":
 
             # Send query to subsonic API and retrieve a list of 1 album
             album = await subsonic.search_album(query)
@@ -144,7 +144,7 @@ class MusicCog(commands.Cog):
             
             await ui.SysMsg.added_album_to_queue(interaction, album)
 
-        elif querytype == "playlist":
+        elif querytype.value == "playlist":
 
             # Send query to subsonic API and retrieve a list of all playlists
             playlists = await subsonic.get_user_playlists()
@@ -469,34 +469,32 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.msg(interaction, f"No playlists found.")
             return
 
-        found_playlist_id = None
-
         # Search for a playlist matching the given name
-        for i, playlist in enumerate(playlists):
-            if playlist['name'] == query:
-                found_playlist_id = playlist['id']
+        found_playlist_id = None
+        for playlist in playlists:
+            if playlist["name"] == query:
+                found_playlist_id = playlist["id"]
                 break
-        
         if found_playlist_id == None:
             await ui.ErrMsg.msg(interaction, "No playlist with that name was found.")
             return
         
-        output = ""
-
         found_playlist = await subsonic.get_playlist(found_playlist_id)
-
         if len(found_playlist.songs) < 1:
             await ui.ErrMsg.msg(interaction, "Playlist is empty.")
             return
         
+        # Paginate playlists
         paginated_tracks = ListPaginator(found_playlist.songs, 20)
-
         if len(paginated_tracks.pages) < page:
             await ui.ErrMsg.msg(interaction, "Page does not exist.")
             return
+        
+        # Assemble output
+        output = ""
         for i, pag_item in enumerate(paginated_tracks.pages[page - 1]):
-            song = pag_item['data']
-            song_number = pag_item['input_index'] + 1
+            song = pag_item["data"]
+            song_number = pag_item["input_index"] + 1
             output += f"{song_number}. {song.artist} - **{song.title}** {(song.duration // 60):02d}m {(song.duration % 60):02d}s\n\n"
         output += f"Page {page} of {paginated_tracks.num_pages}"
 
