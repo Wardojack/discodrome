@@ -5,6 +5,7 @@ import os
 import aiohttp
 
 from pathlib import Path
+from datetime import timedelta
 
 from util import env
 
@@ -187,8 +188,8 @@ class Playlist():
     
     @property
     def duration_printable(self) -> str:
-        ''' The total duration of the playlist as a human readable string in the format `mm:ss` '''
-        return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
+        ''' The total duration of the playlist as a human readable string in the format `hh:mm:ss` '''
+        return str(timedelta(seconds=self._duration))
     
     @property
     def songs(self) -> list[Song]:

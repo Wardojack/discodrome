@@ -491,7 +491,7 @@ class MusicCog(commands.Cog):
             return
         
         # Assemble output
-        output = ""
+        output = f"{found_playlist.song_count} songs - {found_playlist.duration_printable}\n\n"
         for i, pag_item in enumerate(paginated_tracks.pages[page - 1]):
             song = pag_item["data"]
             song_number = pag_item["input_index"] + 1
