@@ -9,6 +9,7 @@ import data
 import copy
 import subsonic
 import ui
+from pagination import ListPaginator
 
 from discodrome import DiscodromeClient
 
@@ -67,6 +68,8 @@ class MusicCog(commands.Cog):
                 await ui.ErrMsg.msg(interaction, f"An unexpected error occurred while connecting to voice: {e}")
                 
         return voice_client
+
+
 
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
     @app_commands.describe(querytype="Whether what you're searching is a track, album or playlist", query="Enter a search query")
@@ -184,6 +187,7 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
 
+
     @app_commands.command(name="stop", description="Stop playing the current track")
     async def stop(self, interaction: discord.Interaction) -> None:
         ''' Disconnect from the active voice channel '''
@@ -216,6 +220,8 @@ class MusicCog(commands.Cog):
     async def stop_error(self, ctx, error):
         logging.error(f"An error occurred while stopping playback: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
 
     @app_commands.command(name="queue", description="View the current queue")
     async def show_queue(self, interaction: discord.Interaction) -> None:
@@ -254,6 +260,8 @@ class MusicCog(commands.Cog):
         logging.error(f"An error occurred while displaying the queue: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
     @app_commands.command(name="clear", description="Clear the current queue")
     async def clear_queue(self, interaction: discord.Interaction) -> None:
         '''Clear the queue'''
@@ -267,6 +275,7 @@ class MusicCog(commands.Cog):
     async def clear_queue_error(self, ctx, error):
         logging.error(f"An error occurred while clearing the queue: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
 
 
     @app_commands.command(name="skip", description="Skip the current track")
@@ -292,6 +301,8 @@ class MusicCog(commands.Cog):
     async def skip_error(self, ctx, error):
         logging.error(f"An error occurred while skipping a track: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
 
     @app_commands.command(name="autoplay", description="Toggles autoplay")
     @app_commands.describe(mode="Determines the method to use when autoplaying")
@@ -346,6 +357,8 @@ class MusicCog(commands.Cog):
             logging.error(f"An error occurred while toggling autoplay: {error}")
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
+
+
     @app_commands.command(name="shuffle", description="Shuffles the current queue")
     async def shuffle(self, interaction: discord.Interaction):
         ''' Randomize current queue using Fisher-Yates algorithm '''
@@ -362,6 +375,8 @@ class MusicCog(commands.Cog):
     async def shuffle_error(self, ctx, error):
         logging.error(f"An error occurred while shuffling the queue: {error}")
         await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
 
     @app_commands.command(name="disco", description="Plays the artist's entire discography")
     @app_commands.describe(artist="The artist to play")
@@ -401,6 +416,7 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
 
 
+
     @app_commands.command(name="playlists", description="List all playlists")
     async def list_playlists(self, interaction):
         # Send query to subsonic API and retrieve a list of all playlists
@@ -426,7 +442,7 @@ class MusicCog(commands.Cog):
         if output == "":
             output = "No playlists found."
 
-        # Show the user their queue
+        # Show the user the list
         await ui.SysMsg.msg(interaction, "Available playlists", output)
 
     @list_playlists.error
@@ -437,6 +453,55 @@ class MusicCog(commands.Cog):
         else:
             logging.error(f"An error occurred while fetching playlists: {error}")
             await ui.ErrMsg.msg(ctx, f"An unknown error has occurred and has been logged to console. Please contact an administrator. {error}")
+
+
+
+    @app_commands.command(name="playlist", description="List tracks in the given playlist")
+    @app_commands.describe(query="Enter the name of a playlist", page="The page to view")
+    async def list_playlist(self, interaction, query: str=None, page: int=1):
+        if query == None:
+            await ui.ErrMsg.msg(interaction, f"Please provide the name of a playlist.")
+            return
+
+        # Send query to subsonic API and retrieve a list of all playlists
+        playlists = await subsonic.get_user_playlists()
+        if playlists == None:
+            await ui.ErrMsg.msg(interaction, f"No playlists found.")
+            return
+
+        found_playlist_id = None
+
+        # Search for a playlist matching the given name
+        for i, playlist in enumerate(playlists):
+            if playlist['name'] == query:
+                found_playlist_id = playlist['id']
+                break
+        
+        if found_playlist_id == None:
+            await ui.ErrMsg.msg(interaction, "No playlist with that name was found.")
+            return
+        
+        output = ""
+
+        found_playlist = await subsonic.get_playlist(found_playlist_id)
+
+        if len(found_playlist.songs) < 1:
+            await ui.ErrMsg.msg(interaction, "Playlist is empty.")
+            return
+        
+        paginated_tracks = ListPaginator(found_playlist.songs, 20)
+
+        if len(paginated_tracks.pages) < page:
+            await ui.ErrMsg.msg(interaction, "Page does not exist.")
+            return
+        for i, pag_item in enumerate(paginated_tracks.pages[page - 1]):
+            song = pag_item['data']
+            song_number = pag_item['input_index'] + 1
+            output += f"{song_number}. {song.artist} - **{song.title}** {(song.duration // 60):02d}m {(song.duration % 60):02d}s\n\n"
+        output += f"Page {page} of {paginated_tracks.num_pages}"
+
+        await ui.SysMsg.msg(interaction, "Playlist '"+found_playlist.name+"'", output)
+
 
 
     @commands.Cog.listener()
@@ -466,6 +531,8 @@ class MusicCog(commands.Cog):
                 logger.info("The bot has disconnected and cleared the queue as there are no users in the voice channel.")
             else:
                 logger.debug("Bot is no longer alone in voice channel, aborting disconnect...")
+
+
 
 async def setup(bot: DiscodromeClient):
     ''' Setup function for the music.py cog '''
