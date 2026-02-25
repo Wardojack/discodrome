@@ -29,6 +29,8 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `/playlists` | List available playlists |
 | `/playlist` | List songs in a playlist |
 
+There is also a single prefix command 'p' which acts as shorthand for `/play track <query>`
+
 ## 🚀 Complete Setup Guide
 
 ### Step 1: Create a Discord Bot
