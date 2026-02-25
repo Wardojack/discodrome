@@ -256,21 +256,55 @@ class Playlist(PlaylistMeta):
         return self._songs
 
 
+
+class ApiResponse():
+    ''' Object representing a generic response from the Subsonic API '''
+    def __init__(self, response: dict):
+        self._raw_response = response
+        self._status = response["subsonic-response"]["status"]
+        self._error_code = response["subsonic-response"]["error"]["code"] if "error" in response["subsonic-response"] else None  
+        self._error_message = response["subsonic-response"]["error"]["message"] if "error" in response["subsonic-response"] else None  
+
+    @property
+    def raw_response(self) -> dict:
+        ''' The raw response from the Subsonic API '''
+        return self._raw_response
+
+    @property
+    def status(self) -> str:
+        ''' The status of the API response. Either "ok" or "failed" '''
+        return self._status
     
-class SearchResults():
+    def succeeded(self) -> bool:
+        ''' Returns true if the API response indicates a successful request '''
+        return self._status == "ok"
+    
+    @property
+    def error_code(self) -> dict:
+        ''' The error code returned by the API, if any. '''
+        return self._error_code
+    
+    @property
+    def error_message(self) -> dict:
+        ''' The error message returned by the API, if any. '''
+        return self._error_message
+
+class SearchResults(ApiResponse):
     ''' Object representing search results returned from the Subsonic API '''
-    def __init__(self, json_object: dict) -> None:
+    def __init__(self, response: dict) -> None:
+        super().__init__(response)
+        search_results = response["subsonic-response"]["searchResult3"] if "searchResult3" in response["subsonic-response"] else {}
         self._songs: list[Song] = []
         self._albums: list[AlbumMeta] = []
         self._artists: list[ArtistMeta] = []
-        if "song" in json_object:
-            for song in json_object["song"]:
+        if "song" in search_results:
+            for song in search_results["song"]:
                 self._songs.append(Song(song))
-        if "album" in json_object:
-            for album in json_object["album"]:
+        if "album" in search_results:
+            for album in search_results["album"]:
                 self._albums.append(AlbumMeta(album))
-        if "artist" in json_object:
-            for artist in json_object["artist"]:
+        if "artist" in search_results:
+            for artist in search_results["artist"]:
                 self._artists.append(ArtistMeta(artist))
     
     @property
@@ -383,12 +417,10 @@ async def search(
     async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
         response.raise_for_status()
         search_data = await response.json()
-        if await check_subsonic_error(search_data):
-            return []
         logger.debug("Search Response: %s", search_data)            
 
-    results = SearchResults(search_data["subsonic-response"]["searchResult3"])
-
+    results = SearchResults(search_data)
+    
     return results
 
 async def search_album(query: str) -> list[Album]:
