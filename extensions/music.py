@@ -96,15 +96,15 @@ class MusicCog(commands.Cog):
     ) -> List[str]:
         choices = []
         if 'querytype' not in interaction.namespace or interaction.namespace['querytype'] == "track":
-            songs = await subsonic.search(current, artist_count=0, album_count=0, song_count=5)
+            songs = (await subsonic.search(current, artist_count=0, album_count=0, song_count=5)).songs
             choices = [
                 app_commands.Choice(name=f"{song.artist} - {song.title}", value=f"{song.artist} {song.title}")
                 for song in songs
             ]
         elif interaction.namespace['querytype'] == "album":
-            albums = await subsonic.search(current, artist_count=0, album_count=5, song_count=0)
+            albums = (await subsonic.search(current, artist_count=0, album_count=5, song_count=0)).albums
             choices = [
-                app_commands.Choice(name=f"{album.artist} - {album.title}", value=f"{album.artist} {album.title}")
+                app_commands.Choice(name=f"{album.artist} - {album.name}", value=f"{album.artist} {album.name}")
                 for album in albums
             ]
         elif interaction.namespace['querytype'] == "playlist":

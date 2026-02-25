@@ -44,6 +44,8 @@ class APIError(Exception):
         self.message = message
         super().__init__(self.message)
 
+
+
 class Song():
     ''' Object representing a song returned from the Subsonic API '''
     def __init__(self, json_object: dict) -> None:
@@ -89,8 +91,10 @@ class Song():
     def duration_printable(self) -> str:
         ''' The total duration of the song as a human readable string in the format `mm:ss` '''
         return f"{(self._duration // 60):02d}:{(self._duration % 60):02d}"
+    
 
-class Album():
+
+class AlbumMeta():
     ''' Object representing an album returned from subsonic API '''
     def __init__(self, json_object: dict) -> None:
         self._id: str = json_object["id"] if "id" in json_object else ""
@@ -100,9 +104,6 @@ class Album():
         self._song_count: int = json_object["songCount"] if "songCount" in json_object else 0
         self._duration: int = json_object["duration"] if "duration" in json_object else 0
         self._year: int = json_object["year"] if "year" in json_object else 0
-        self._songs: list[Song] = []
-        for song in json_object["song"]:
-            self._songs.append(Song(song))
     
     @property
     def album_id(self) -> str:
@@ -144,12 +145,65 @@ class Album():
         ''' The year the album was released '''
         return self._year
     
+class Album(AlbumMeta):
+    ''' Object representing an album returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        super().__init__(json_object)
+        self._songs: list[Song] = []
+        for song in json_object["song"]:
+            self._songs.append(Song(song))
+    
     @property
     def songs(self) -> list[Song]:
         ''' The songs in the album '''
         return self._songs
+
+
     
-class Playlist():
+class ArtistMeta():
+    ''' Object representing an artist returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        self._id: str = json_object["id"] if "id" in json_object else ""
+        self._name: str = json_object["name"] if "name" in json_object else "Unknown Artist"
+        self._cover_id: str = json_object["coverArt"] if "coverArt" in json_object else ""
+        self._album_count: int = json_object["albumCount"] if "albumCount" in json_object else 0
+    
+    @property
+    def artist_id(self) -> str:
+        ''' The artist's id '''
+        return self._id
+    
+    @property
+    def name(self) -> str:
+        ''' The artist's name '''
+        return self._name
+    
+    @property
+    def cover_id(self) -> str:
+        ''' The id of the cover art used by the artist '''
+        return self._cover_id
+    
+    @property
+    def album_count(self) -> int:
+        ''' The number of albums by the artist '''
+        return self._album_count
+    
+class Artist(ArtistMeta):
+    ''' Object representing an artist returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        super().__init__(json_object)
+        self._albums: list[Album] = []
+        for album in json_object["album"]:
+            self._albums.append(Album(album))
+    
+    @property
+    def albums(self) -> list[Album]:
+        ''' The albums by the artist '''
+        return self._albums
+
+
+
+class PlaylistMeta():
     ''' Object representing a playlist returned from subsonic API '''
     def __init__(self, json_object: dict) -> None:
         self._id: str = json_object["id"] if "id" in json_object else ""
@@ -157,9 +211,6 @@ class Playlist():
         self._cover_id: str = json_object["coverArt"] if "coverArt" in json_object else ""
         self._song_count: int = json_object["songCount"] if "songCount" in json_object else 0
         self._duration: int = json_object["duration"] if "duration" in json_object else 0
-        self._songs: list[Song] = []
-        for song in json_object["entry"]:
-            self._songs.append(Song(song))
     
     @property
     def playlist_id(self) -> str:
@@ -191,10 +242,53 @@ class Playlist():
         ''' The total duration of the playlist as a human readable string in the format `hh:mm:ss` '''
         return str(timedelta(seconds=self._duration))
     
+class Playlist(PlaylistMeta):
+    ''' Object representing a playlist returned from subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        super().__init__(json_object)
+        self._songs: list[Song] = []
+        for song in json_object["entry"]:
+            self._songs.append(Song(song))
+
     @property
     def songs(self) -> list[Song]:
         ''' The songs in the playlist '''
         return self._songs
+
+
+    
+class SearchResults():
+    ''' Object representing search results returned from the Subsonic API '''
+    def __init__(self, json_object: dict) -> None:
+        self._songs: list[Song] = []
+        self._albums: list[AlbumMeta] = []
+        self._artists: list[ArtistMeta] = []
+        if "song" in json_object:
+            for song in json_object["song"]:
+                self._songs.append(Song(song))
+        if "album" in json_object:
+            for album in json_object["album"]:
+                self._albums.append(AlbumMeta(album))
+        if "artist" in json_object:
+            for artist in json_object["artist"]:
+                self._artists.append(ArtistMeta(artist))
+    
+    @property
+    def songs(self) -> list[Song]:
+        ''' The songs returned by the search query '''
+        return self._songs
+    
+    @property
+    def albums(self) -> list[AlbumMeta]:
+        ''' The albums returned by the search query '''
+        return self._albums
+    
+    @property
+    def artists(self) -> list[ArtistMeta]:
+        ''' The artists returned by the search query '''
+        return self._artists
+    
+
 
 async def ping_api() -> bool:
     ''' Send a ping request to the subsonic API '''
@@ -258,7 +352,16 @@ async def check_subsonic_error(response: dict[str, any]) -> bool:
     logger.warning("Subsonic API request responded with error code %s: %s", err_code, err_msg)
     return True
 
-async def search(query: str, *, artist_count: int=00, artist_offset: int=0, album_count: int=0, album_offset: int=0, song_count: int=1, song_offset: int=0) -> list[Song]:
+async def search(
+        query: str,
+        *,
+        artist_count: int=00,
+        artist_offset: int=0,
+        album_count: int=0,
+        album_offset: int=0,
+        song_count: int=1,
+        song_offset: int=0
+    ) -> SearchResults:
     ''' Send a search request to the subsonic API '''
 
     # Sanitize special characters in the user's query
@@ -283,14 +386,8 @@ async def search(query: str, *, artist_count: int=00, artist_offset: int=0, albu
         if await check_subsonic_error(search_data):
             return []
         logger.debug("Search Response: %s", search_data)            
-    
-    results: list[Song] = []
 
-    try:
-        for item in search_data["subsonic-response"]["searchResult3"]["song"]:
-            results.append(Song(item))
-    except KeyError:
-        return []
+    results = SearchResults(search_data["subsonic-response"]["searchResult3"])
 
     return results
 
