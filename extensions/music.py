@@ -223,7 +223,8 @@ class MusicCog(commands.Cog):
                 await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
                 return
             
-            album = response.albums[0]
+            album = await subsonic.get_album(response.albums[0].id)
+
             for song in album.songs:
                 player.queue.append(song)
             

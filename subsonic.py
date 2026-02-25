@@ -107,7 +107,7 @@ class AlbumMeta():
         self._year: int = json_object["year"] if "year" in json_object else 0
     
     @property
-    def album_id(self) -> str:
+    def id(self) -> str:
         ''' The album's id '''
         return self._id
     
@@ -703,3 +703,30 @@ async def list_albums(
         results.append(AlbumMeta(item))
 
     return results
+
+
+
+async def get_album(id: str) -> Album:
+    ''' Request an album from the subsonic API '''
+
+    album_params = {
+        "id": id
+    }
+
+    params = SUBSONIC_REQUEST_PARAMS | album_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return None
+        logger.debug("Search Response: %s", search_data)
+
+    try:
+        album = Album(search_data["subsonic-response"]["album"])
+    except Exception as e:
+        logger.error("Failed to parse album data: %s", e)
+        return None
+    
+    return album
