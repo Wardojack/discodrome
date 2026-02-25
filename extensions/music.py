@@ -1,3 +1,5 @@
+from typing import List
+
 import discord
 import logging
 import asyncio
@@ -71,14 +73,26 @@ class MusicCog(commands.Cog):
 
 
 
+
+    async def play_querytype_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> List[str]:
+        options =  [
+            "track",
+            "album",
+            "playlist"
+        ]
+        return [
+            app_commands.Choice(name=option.capitalize(), value=option)
+            for option in options if current.lower() in option.lower()
+        ]
+
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
     @app_commands.describe(querytype="Whether what you're searching is a track, album or playlist", query="Enter a search query")
-    @app_commands.choices(querytype=[
-        app_commands.Choice(name="Track", value="track"),
-        app_commands.Choice(name="Album", value="album"),
-        app_commands.Choice(name="Playlist", value="playlist"),
-    ])
-    async def play(self, interaction: discord.Interaction, querytype: app_commands.Choice[str], query: str=None) -> None:
+    @app_commands.autocomplete(querytype=play_querytype_autocomplete)
+    async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
 
         # Check if user is in voice channel
@@ -107,12 +121,8 @@ class MusicCog(commands.Cog):
             await player.play_audio_queue(interaction, voice_client)
             return
 
-        # Check querytype is not blank
-        if querytype.value is None:
-            return await ui.ErrMsg.msg(interaction, "Please provide a query type.")
-
-        # Check if the query is a track
-        if querytype.value == "track":
+        # Check if the query is a track or empty (default to track search if empty)
+        if querytype == "track" or querytype == None:
 
             # Send our query to the subsonic API and retrieve a list of 1 song
             songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
@@ -130,7 +140,7 @@ class MusicCog(commands.Cog):
 
             await ui.SysMsg.added_to_queue(interaction, songs[0])
 
-        elif querytype.value == "album":
+        elif querytype == "album":
 
             # Send query to subsonic API and retrieve a list of 1 album
             album = await subsonic.search_album(query)
@@ -144,7 +154,7 @@ class MusicCog(commands.Cog):
             
             await ui.SysMsg.added_album_to_queue(interaction, album)
 
-        elif querytype.value == "playlist":
+        elif querytype == "playlist":
 
             # Send query to subsonic API and retrieve a list of all playlists
             playlists = await subsonic.get_user_playlists()
