@@ -22,7 +22,15 @@ class DiscodromeClient(commands.Bot):
     def __init__(self, test_guild: int=None) -> None:
         self.test_guild = test_guild
 
-        super().__init__(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
+        if env.BOT_PREFIX != None:
+            if len(env.BOT_PREFIX) > 0:
+                logger.info(f'Command prefix is {env.BOT_PREFIX}')
+            else:
+                logger.info(f'Command prefix is an empty string. ALL MESSAGES WILL BE INTERPRETED AS COMMANDS.')
+        else:
+            logger.info(f'Command prefix not set.')
+        prefix = commands.when_mentioned if env.BOT_PREFIX == None else commands.when_mentioned_or(env.BOT_PREFIX)
+        super().__init__(command_prefix=prefix, intents=discord.Intents.all())
 
     async def load_extensions(self) -> None:
         ''' Auto-loads all extensions present within the `./extensions` directory. '''
