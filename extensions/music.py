@@ -152,7 +152,7 @@ class MusicCog(commands.Cog):
         if querytype == "track" or querytype == None:
 
             # Send our query to the subsonic API and retrieve a list of 1 song
-            songs = await subsonic.search(query, artist_count=0, album_count=0, song_count=1)
+            songs = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1)).songs
             if songs == "Error":
                 await ui.ErrMsg.msg(interaction, f"An api error has occurred and has been logged to console. Please contact an administrator.")
                 return
