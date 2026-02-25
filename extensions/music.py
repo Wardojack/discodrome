@@ -415,8 +415,20 @@ class MusicCog(commands.Cog):
 
 
 
+    async def disco_artist_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> List[str]:
+        artists = (await subsonic.search(current, artist_count=5, album_count=0, song_count=0)).artists
+        return [
+            app_commands.Choice(name=artist.name, value=artist.name)
+            for artist in artists
+        ]
+
     @app_commands.command(name="disco", description="Plays the artist's entire discography")
     @app_commands.describe(artist="The artist to play")
+    @app_commands.autocomplete(artist=disco_artist_autocomplete)
     async def disco(self, interaction: discord.Interaction, artist: str):
         ''' Play the artist's entire discography'''
 
