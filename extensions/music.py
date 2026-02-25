@@ -88,10 +88,37 @@ class MusicCog(commands.Cog):
             app_commands.Choice(name=option.capitalize(), value=option)
             for option in options if current.lower() in option.lower()
         ]
+    
+    async def play_query_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> List[str]:
+        choices = []
+        if 'querytype' not in interaction.namespace or interaction.namespace['querytype'] == "track":
+            songs = await subsonic.search(current, artist_count=0, album_count=0, song_count=5)
+            choices = [
+                app_commands.Choice(name=f"{song.artist} - {song.title}", value=f"{song.artist} {song.title}")
+                for song in songs
+            ]
+        elif interaction.namespace['querytype'] == "album":
+            albums = await subsonic.search(current, artist_count=0, album_count=5, song_count=0)
+            choices = [
+                app_commands.Choice(name=f"{album.artist} - {album.title}", value=f"{album.artist} {album.title}")
+                for album in albums
+            ]
+        elif interaction.namespace['querytype'] == "playlist":
+            playlists = await subsonic.get_user_playlists()
+            choices = [
+                app_commands.Choice(name=playlist["name"], value=playlist["name"])
+                for playlist in playlists if current.lower() in playlist["name"].lower()
+            ]
+        return choices
 
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
     @app_commands.describe(querytype="Whether what you're searching is a track, album or playlist", query="Enter a search query")
     @app_commands.autocomplete(querytype=play_querytype_autocomplete)
+    @app_commands.autocomplete(query=play_query_autocomplete)
     async def play(self, interaction: discord.Interaction, querytype: str=None, query: str=None) -> None:
         ''' Play a track matching the given title/artist query '''
 
@@ -466,8 +493,20 @@ class MusicCog(commands.Cog):
 
 
 
+    async def list_playlist_query_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> List[str]:
+        playlists = await subsonic.get_user_playlists()
+        return [
+            app_commands.Choice(name=playlist["name"], value=playlist["name"])
+            for playlist in playlists if current.lower() in playlist["name"].lower()
+        ]
+
     @app_commands.command(name="playlist", description="List tracks in the given playlist")
     @app_commands.describe(query="Enter the name of a playlist", page="The page to view")
+    @app_commands.autocomplete(query=list_playlist_query_autocomplete)
     async def list_playlist(self, interaction, query: str=None, page: int=1):
         if query == None:
             await ui.ErrMsg.msg(interaction, f"Please provide the name of a playlist.")
