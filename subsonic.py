@@ -420,59 +420,10 @@ async def search(
         logger.debug("Search Response: %s", search_data)            
 
     results = SearchResults(search_data)
-    
+
     return results
 
-async def search_album(query: str) -> list[Album]:
-    ''' Send a search request to the subsonic API to return 1 album and all its songs '''
 
-    # Sanitize special characters in the user's query
-    #parsed_query = urlParse.quote(query, safe='')
-
-    search_params = {
-        "query": query,
-        "artistCount": "0",
-        "albumCount": "1",
-        "albumOffset": "0",
-        "songCount": "0",
-        "songOffset": "0"
-    }
-
-    params = SUBSONIC_REQUEST_PARAMS | search_params
-
-    session = await get_session()
-    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/search3.view", params=params) as response:
-        response.raise_for_status()
-        search_data = await response.json()
-        if await check_subsonic_error(search_data):
-            return None
-        try:
-            albumid = search_data["subsonic-response"]["searchResult3"]["album"][0]["id"]
-        except Exception as e:
-            return None
-        logger.debug("Album ID: %s", albumid)
-    
-    album_params = {
-        "id": albumid
-    }
-
-    album_params = SUBSONIC_REQUEST_PARAMS | album_params
-
-    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbum.view", params=album_params) as response:
-        response.raise_for_status()
-        search_data = await response.json()
-        if await check_subsonic_error(search_data):
-            return None
-        logger.debug("Search Response: %s", search_data)
-
-
-    try:
-        album = Album(search_data["subsonic-response"]["album"])
-    except Exception as e:
-        logger.error("Failed to parse album data: %s", e)
-        return None
-    
-    return album
 
 async def get_user_playlists() -> list[int]:
     ''' Retrive metadata of all playlists the Subsonic user is authorised to play '''

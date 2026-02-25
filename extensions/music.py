@@ -206,13 +206,18 @@ class MusicCog(commands.Cog):
 
         elif querytype == "album":
 
-            # Send query to subsonic API and retrieve a list of 1 album
-            album = await subsonic.search_album(query)
-            if album == None:
+            try:
+                response = await subsonic.search(query, artist_count=0, album_count=1, song_count=0)
+            except subsonic.APIError as e:
+                logger.error(f"An API error has occurred while searching for an album, code {e.code}: {e.message}")
+                await ui.ErrMsg.msg(interaction, "An API error has occurred and has been logged to console. Please contact an administrator.")
+                return
+
+            if len(response.albums) == 0:
                 await ui.ErrMsg.msg(interaction, f"No album found for **{query}**.")
                 return
             
-            # Add all songs from the album to the queue
+            album = response.albums[0]
             for song in album.songs:
                 player.queue.append(song)
             
