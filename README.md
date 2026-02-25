@@ -16,9 +16,11 @@ A discord music bot that seamlessly streams music from your personal music serve
 
 ## 🎮 Commands
 
+### Slash commands
 | Command | Description |
 |---------|-------------|
-| `/play` | Play a specified track, album or playlist |
+| `/play` | Place a specified track, album or playlist at the end of the queue and start playing |
+| `/next` | Place a specified track next in the queue and start playing |
 | `/disco` | Play an artist's entire discography |
 | `/queue` | View the current queue |
 | `/clear` | Clear the current queue |
@@ -29,7 +31,13 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `/playlists` | List available playlists |
 | `/playlist` | List songs in a playlist |
 
-There is also a single prefix command 'p' which acts as shorthand for `/play track <query>`
+### Prefix commands
+| Command | Description |
+|---------|-------------|
+| `p` | Place a specified track at the end of the queue and start playing |
+| `n` | Place a specified track next in the queue and start playing |
+| `s` | Skip the current track |
+| `q` | View the current queue |
 
 ## 🚀 Complete Setup Guide
 
@@ -83,7 +91,7 @@ There is also a single prefix command 'p' which acts as shorthand for `/play tra
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
 | `BOT_STATUS` | Custom status message for the bot | No |
-| `BOT_PREFIX` | Command prefix for the bot. Prefix commands will be disabled if not set. An empty string will cause all messages to be interpreted as commands. | No |
+| `BOT_PREFIX` | Command prefix for the bot. If unset prefix commands can still be used with an @mention. An empty string will cause all messages to be interpreted as commands. | No |
 
 ### Supported Subsonic Servers
 
