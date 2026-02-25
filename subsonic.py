@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import Literal
 import aiohttp
 
 from pathlib import Path
@@ -653,3 +654,52 @@ async def stream(stream_id: str):
             logger.error("Failed to stream song: %s", await response.text())
             return None
         return str(response.url)
+
+
+
+async def list_albums(
+    type: Literal["random", "newest", "frequent", "recent", "starred", "alphabeticalByName", "alphabeticalByArtist"],
+    size: int=None,
+    offset: int=None,
+    from_year: int=None,
+    to_year: int=None,
+    genre: str=None
+) -> list[AlbumMeta]:
+    ''' Request a list of albums from the subsonic API '''
+
+    logger.debug("Requesting album list...")
+    search_params: dict[str, any] = {
+        "type": type
+    }
+
+    # Handle Optional params
+    if size is not None:
+        search_params["size"] = size
+
+    if offset is not None:
+        search_params["offset"] = offset
+
+    if from_year is not None:
+        search_params["fromYear"] = from_year
+
+    if to_year is not None:
+        search_params["toYear"] = to_year
+
+    if genre is not None:
+        search_params["genre"] = genre
+
+    params = SUBSONIC_REQUEST_PARAMS | search_params
+
+    session = await get_session()
+    async with await session.get(f"{env.SUBSONIC_SERVER}/rest/getAlbumList.view", params=params) as response:
+        response.raise_for_status()
+        search_data = await response.json()
+        if await check_subsonic_error(search_data):
+            return []
+        logger.debug("Search Response: %s", search_data)
+
+    results: list[AlbumMeta] = []
+    for item in search_data["subsonic-response"]["albumList"]["album"]:
+        results.append(AlbumMeta(item))
+
+    return results
