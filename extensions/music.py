@@ -74,6 +74,42 @@ class MusicCog(commands.Cog):
 
 
 
+    @commands.command(name="p")
+    async def play_prefix(self, ctx: commands.Context, *, query: str):
+
+        if ctx.author.voice is None:
+            await ctx.send("You are not connected to a voice channel.")
+            return
+
+        player = data.guild_data(ctx.guild.id).player
+
+        result = (await subsonic.search(query, artist_count=0, album_count=0, song_count=1))
+
+        if not result.succeeded:
+            await ctx.send(f"An error has occurred while searching for **{query}**. Code: {result.error_code}.")
+            return
+
+        songs = result.songs
+
+        if len(songs) == 0:
+            await ctx.send(f"No track found for **{query}**.")
+            return
+
+        voice_client = discord.utils.get(self.bot.voice_clients, guild=ctx.guild)
+        if voice_client is None:
+            try:
+                voice_client = await ctx.author.voice.channel.connect(timeout=10.0, reconnect=True)
+            except Exception as e:
+                await ctx.send(f"Failed to connect to voice channel: {e}")
+                return
+
+        player.channel = ctx.channel
+        player.queue.append(songs[0])
+        await ctx.send(f"Queued **{songs[0].title}** by {songs[0].artist}")
+        await player.play_audio_queue(voice_client)
+
+
+
     async def play_querytype_autocomplete(
         self,
         interaction: discord.Interaction,
@@ -135,6 +171,7 @@ class MusicCog(commands.Cog):
 
         # Get the guild's player
         player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
 
         # Check queue if no query is provided
         if query is None:
@@ -145,7 +182,7 @@ class MusicCog(commands.Cog):
 
             # Begin playback of queue
             await ui.SysMsg.starting_queue_playback(interaction)
-            await player.play_audio_queue(interaction, voice_client)
+            await player.play_audio_queue(voice_client)
             return
 
         # Check if the query is a track or empty (default to track search if empty)
@@ -212,7 +249,7 @@ class MusicCog(commands.Cog):
             
             await ui.SysMsg.added_playlist_to_queue(interaction, playlist)
 
-        await player.play_audio_queue(interaction, voice_client)
+        await player.play_audio_queue(voice_client)
 
     @play.error
     async def play_error(self, ctx, error):
@@ -332,7 +369,9 @@ class MusicCog(commands.Cog):
             await ui.ErrMsg.not_playing(interaction)
             return
 
-        await data.guild_data(interaction.guild_id).player.skip_track(interaction, voice_client)
+        player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
+        await player.skip_track(voice_client)
 
     @skip.error
     async def skip_error(self, ctx, error):
@@ -373,8 +412,9 @@ class MusicCog(commands.Cog):
         logger.debug(f"Voice client: {voice_client}")
         if voice_client:
             logger.debug(f"Is playing: {voice_client.is_playing()}")
-        if voice_client is not None and not voice_client.is_playing():        
+        if voice_client is not None and not voice_client.is_playing():
             player = data.guild_data(interaction.guild_id).player
+            player.channel = interaction.channel
 
             logger.debug(f"Queue: {player.queue}")
             try:
@@ -383,7 +423,7 @@ class MusicCog(commands.Cog):
                 logger.debug("No current song")
                 
             logger.debug("Playing audio queue...")
-            await player.play_audio_queue(interaction, voice_client)
+            await player.play_audio_queue(voice_client)
         
     @autoplay.error
     async def autoplay_error(self, ctx, error):
@@ -437,6 +477,7 @@ class MusicCog(commands.Cog):
 
         # Get the guild's player
         player = data.guild_data(interaction.guild_id).player
+        player.channel = interaction.channel
 
         # Send our query to the subsonic API and retrieve list of albums in artist's discography
         albums = await subsonic.get_artist_discography(artist)
@@ -453,7 +494,7 @@ class MusicCog(commands.Cog):
         await ui.SysMsg.added_discography_to_queue(interaction, artist, albums)
 
         # Begin playback of queue
-        await player.play_audio_queue(interaction, voice_client)
+        await player.play_audio_queue(voice_client)
 
     @disco.error
     async def disco_error(self, ctx, error):
