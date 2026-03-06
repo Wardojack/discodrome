@@ -126,7 +126,7 @@ class Player():
             return
 
         # Begin playing the song
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         self.player_loop = loop
 
         # Handle playback finished
