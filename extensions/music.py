@@ -413,9 +413,7 @@ class MusicCog(commands.Cog):
             return
 
         # Stop playback
-        voice_client.stop()
-
-        player.current_song = None
+        player.stop(voice_client)
 
         # Display disconnect confirmation
         await ui.SysMsg.stopping_queue_playback(interaction)

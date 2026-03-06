@@ -20,6 +20,7 @@ class Player():
             "channel": None,
         }
         self._player_loop = None
+        self._stopped = False
 
     @property
     def current_song(self) -> Song:
@@ -133,6 +134,11 @@ class Player():
         async def playback_finished(error):
             if error:
                 logger.error(f"An error occurred while playing the audio: {error}")
+                return
+
+            if self._stopped:
+                logger.debug("Playback stopped intentionally, not advancing queue.")
+                self._stopped = False
                 return
 
             logger.debug("Playback finished.")
@@ -250,6 +256,12 @@ class Player():
             # If the queue is empty, playback has ended; we should let the user know
             await self._send("Playback ended")
 
+
+    def stop(self, voice_client: discord.VoiceClient) -> None:
+        ''' Stops playback without advancing the queue '''
+        self._stopped = True
+        self.current_song = None
+        voice_client.stop()
 
     async def skip_track(self, voice_client: discord.VoiceClient) -> None:
         ''' Skips the current track and plays the next one in the queue '''
