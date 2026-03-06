@@ -260,6 +260,9 @@ class MusicCog(commands.Cog):
         # Get a valid voice channel connection
         voice_client = await self.get_voice_client(interaction, should_connect=True)
 
+        if voice_client is None:
+            return
+
         # Don't attempt playback if the bot is already playing
         if voice_client.is_playing() and query is None:
             await ui.ErrMsg.already_playing(interaction)
