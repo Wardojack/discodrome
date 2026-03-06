@@ -1,5 +1,6 @@
 ''' For interfacing with the Subsonic API '''
 
+import asyncio
 import logging
 import os
 from typing import Literal
@@ -35,7 +36,8 @@ async def close_session() -> None:
     ''' Close the aiohttp session '''
     global globalsession
     if globalsession is not None:
-        globalsession.close()
+        await globalsession.close()
+        await asyncio.sleep(0.25)
         globalsession = None
 
 class APIError(Exception):
