@@ -139,9 +139,7 @@ class Player():
             try:
                 # Only proceed if voice client is still connected
                 if voice_client and voice_client.is_connected():
-                    future = asyncio.run_coroutine_threadsafe(self.play_audio_queue(voice_client), loop)
-                    # Add a callback to handle any exceptions that occur during execution
-                    future.add_done_callback(lambda f: logger.error(f"Error in play_audio_queue: {f.exception()}") if f.exception() else None)
+                    await self.play_audio_queue(voice_client)
                 else:
                     logger.warning("Voice client disconnected, cannot continue queue playback")
             except Exception as e:
