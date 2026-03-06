@@ -401,7 +401,8 @@ class MusicCog(commands.Cog):
         player = data.guild_data(interaction.guild_id).player
 
         if player.current_song is None:
-            ui.ErrMsg.not_playing(interaction)
+            await ui.ErrMsg.not_playing(interaction)
+            return
 
         # Get the voice client instance for the current guild
         voice_client = await self.get_voice_client(interaction)
@@ -415,9 +416,6 @@ class MusicCog(commands.Cog):
         voice_client.stop()
 
         player.current_song = None
-        
-        # Add current song back to the queue if exists
-        player.queue.insert(0, player.current_song)
 
         # Display disconnect confirmation
         await ui.SysMsg.stopping_queue_playback(interaction)
