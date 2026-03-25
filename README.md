@@ -39,7 +39,15 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `s` | Skip the current track |
 | `q` | View the current queue |
 
-## 🚀 Complete Setup Guide
+## 🛠️ Requirements
+
+- Docker running on an x64 or ARM device
+
+### Non-docker deployment/development
+- Python 3.10 or later
+- FFmpeg in PATH
+
+## 🚀 Quick Start Guide
 
 ### Step 1: Create a Discord Bot
 
@@ -101,14 +109,6 @@ A discord music bot that seamlessly streams music from your personal music serve
 - Gonic
 - Ampache (with Subsonic API enabled)
 - Jellyfin (with Subsonic plugin)
-
-## 🛠️ Technical Stack
-
-- Discord.js v14
-- Node.js
-- Subsonic API
-- Docker
-- FFmpeg for audio processing
 
 ## 👥 Contributing
 
