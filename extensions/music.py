@@ -14,6 +14,7 @@ import ui
 from pagination import ListPaginator
 
 from discodrome import DiscodromeClient
+from util import env
 
 logger = logging.getLogger(__name__)
 
@@ -221,18 +222,18 @@ class MusicCog(commands.Cog):
         choices = []
         if 'querytype' not in interaction.namespace or interaction.namespace['querytype'] == "track":
             if current == "":
-                songs = await subsonic.get_random_songs(size=5)
+                songs = await subsonic.get_random_songs(size=env.BOT_SEARCH_SUGGESTION_COUNT)
             else:
-                songs = (await subsonic.search(current, artist_count=0, album_count=0, song_count=5)).songs
+                songs = (await subsonic.search(current, artist_count=0, album_count=0, song_count=env.BOT_SEARCH_SUGGESTION_COUNT)).songs
             choices = [
                 app_commands.Choice(name=f"{song.artist} - {song.title}", value=f"{song.artist} {song.title}")
                 for song in songs
             ]
         elif interaction.namespace['querytype'] == "album":
             if current == "":
-                albums = await subsonic.list_albums("random", size=5)
+                albums = await subsonic.list_albums("random", size=env.BOT_SEARCH_SUGGESTION_COUNT)
             else:
-                albums = (await subsonic.search(current, artist_count=0, album_count=5, song_count=0)).albums
+                albums = (await subsonic.search(current, artist_count=0, album_count=env.BOT_SEARCH_SUGGESTION_COUNT, song_count=0)).albums
             choices = [
                 app_commands.Choice(name=f"{album.artist} - {album.name}", value=f"{album.artist} {album.name}")
                 for album in albums
@@ -243,6 +244,7 @@ class MusicCog(commands.Cog):
                 app_commands.Choice(name=playlist["name"], value=playlist["name"])
                 for playlist in playlists if current.lower() in playlist["name"].lower()
             ]
+            del choices[env.BOT_SEARCH_SUGGESTION_COUNT:]
         return choices
 
     @app_commands.command(name="play", description="Plays a specified track, album or playlist")
@@ -588,7 +590,7 @@ class MusicCog(commands.Cog):
         interaction: Interaction,
         current: str,
     ) -> List[str]:
-        artists = (await subsonic.search(current, artist_count=5, album_count=0, song_count=0)).artists
+        artists = (await subsonic.search(current, artist_count=env.BOT_SEARCH_SUGGESTION_COUNT, album_count=0, song_count=0)).artists
         return [
             app_commands.Choice(name=artist.name, value=artist.name)
             for artist in artists
@@ -680,10 +682,12 @@ class MusicCog(commands.Cog):
         current: str,
     ) -> List[str]:
         playlists = await subsonic.get_user_playlists()
-        return [
+        playlists = [
             app_commands.Choice(name=playlist["name"], value=playlist["name"])
             for playlist in playlists if current.lower() in playlist["name"].lower()
         ]
+        del playlists[env.BOT_SEARCH_SUGGESTION_COUNT:]
+        return playlists
 
     @app_commands.command(name="playlist", description="List tracks in the given playlist")
     @app_commands.describe(query="Enter the name of a playlist", page="The page to view")

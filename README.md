@@ -100,6 +100,7 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
 | `BOT_STATUS` | Custom status message for the bot | No |
 | `BOT_PREFIX` | Command prefix for the bot. If unset prefix commands can still be used with an @mention. An empty string will cause all messages to be interpreted as commands. | No |
+| `BOT_SEARCH_SUGGESTION_COUNT` | The number of items to list in the autocomplete menu. Defaults to 5. | No |
 
 ### Supported Subsonic Servers
 

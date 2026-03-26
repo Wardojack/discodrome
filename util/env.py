@@ -15,3 +15,4 @@ SUBSONIC_PASSWORD: Final[str] = os.getenv("SUBSONIC_PASSWORD")
 
 BOT_STATUS: Final[str] = os.getenv("BOT_STATUS")
 BOT_PREFIX: Final[str] = os.getenv("BOT_PREFIX")
+BOT_SEARCH_SUGGESTION_COUNT: Final[int] = int(os.getenv("BOT_SEARCH_SUGGESTION_COUNT", 5))
