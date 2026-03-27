@@ -16,10 +16,12 @@ A discord music bot that seamlessly streams music from your personal music serve
 
 ## 🎮 Commands
 
+### Slash commands
 | Command | Description |
 |---------|-------------|
-| `/play` | Plays a specified track, album or playlist |
-| `/disco` | Plays an artist's entire discography |
+| `/play` | Place a specified track, album or playlist at the end of the queue and start playing |
+| `/next` | Place a specified track next in the queue and start playing |
+| `/disco` | Play an artist's entire discography |
 | `/queue` | View the current queue |
 | `/clear` | Clear the current queue |
 | `/shuffle` | Shuffles the current queue |
@@ -27,8 +29,25 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `/stop` | Stop playing the current track |
 | `/autoplay` | Toggle autoplay |
 | `/playlists` | List available playlists |
+| `/playlist` | List songs in a playlist |
 
-## 🚀 Complete Setup Guide
+### Prefix commands
+| Command | Description |
+|---------|-------------|
+| `p` | Place a specified track at the end of the queue and start playing |
+| `n` | Place a specified track next in the queue and start playing |
+| `s` | Skip the current track |
+| `q` | View the current queue |
+
+## 🛠️ Requirements
+
+- Docker running on an x64 or ARM device
+
+### Non-docker deployment/development
+- Python 3.10 or later
+- FFmpeg in PATH
+
+## 🚀 Quick Start Guide
 
 ### Step 1: Create a Discord Bot
 
@@ -80,6 +99,8 @@ A discord music bot that seamlessly streams music from your personal music serve
 | `DISCORD_TEST_GUILD` | Discord server ID where commands will be registered | Yes |
 | `DISCORD_OWNER_ID` | Your Discord user ID | Yes |
 | `BOT_STATUS` | Custom status message for the bot | No |
+| `BOT_PREFIX` | Command prefix for the bot. If unset prefix commands can still be used with an @mention. An empty string will cause all messages to be interpreted as commands. | No |
+| `BOT_SEARCH_SUGGESTION_COUNT` | The number of items to list in the autocomplete menu. Defaults to 5. | No |
 
 ### Supported Subsonic Servers
 
@@ -89,14 +110,6 @@ A discord music bot that seamlessly streams music from your personal music serve
 - Gonic
 - Ampache (with Subsonic API enabled)
 - Jellyfin (with Subsonic plugin)
-
-## 🛠️ Technical Stack
-
-- Discord.js v14
-- Node.js
-- Subsonic API
-- Docker
-- FFmpeg for audio processing
 
 ## 👥 Contributing
 
